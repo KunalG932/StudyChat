@@ -1,10 +1,10 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyAktHb6SLAb3ekcCWW1spg_lTM6PB3pi4I",
-  authDomain: "studychat-dpu.firebaseapp.com",
-  projectId: "studychat-dpu",
-  storageBucket: "studychat-dpu.appspot.com",
-  messagingSenderId: "8208143906",
-  appId: "1:8208143906:web:04adfcfc374f53fc9e9c7b"
+    apiKey: "AIzaSyAktHb6SLAb3ekcCWW1spg_lTM6PB3pi4I",
+    authDomain: "studychat-dpu.firebaseapp.com",
+    projectId: "studychat-dpu",
+    storageBucket: "studychat-dpu.appspot.com",
+    messagingSenderId: "8208143906",
+    appId: "1:8208143906:web:04adfcfc374f53fc9e9c7b"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -24,8 +24,13 @@ document.getElementById('msgBtn').addEventListener('click', () => {
         alert('Please enter a message.');
         return;
     }
+
+    // Get the group ID from the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const groupId = urlParams.get('group');
+
     const timestamp = new Date().getTime();
-    db.ref("messages/" + timestamp).set({
+    db.ref("groups/" + groupId + "/messages/" + timestamp).set({
         msg: msg,
         sender: sender
     }).then(() => {
@@ -37,28 +42,53 @@ document.getElementById('msgBtn').addEventListener('click', () => {
     });
 });
 
-// Firebase listener for new messages
-db.ref("messages").on("child_added", function (snapshot) {
-    const data = snapshot.val();
-    const key = snapshot.key;
-    const messages = document.getElementById('messages');
+// Firebase listener for new messages in the group
+document.getElementById('createGroupBtn').addEventListener('click', () => {
+    const groupName = prompt('Enter group name:');
+    if (groupName) {
+        const groupKey = db.ref("groups").push().key;
+        db.ref("groups/" + groupKey).set({
+            name: groupName,
+            createdBy: sender
+        }).then(() => {
+            const groupLink = window.location.href + '?group=' + groupKey;
+            alert('Group created: ' + groupName + '\nGroup Link: ' + groupLink);
+            document.getElementById('groupLinkBtn').style.display = 'block';
+            document.getElementById('groupLinkBtn').href = groupLink;
 
-    const messageDiv = document.createElement('div');
-    messageDiv.id = key;
-
-    if (data.sender === sender) {
-        messageDiv.className = 'outer me';
-        messageDiv.innerHTML = `<div class="alert alert-primary" role="alert">You: ${data.msg} <button onclick="deleteMessage('${key}')" class="btn btn-sm btn-danger">DELETE</button></div>`;
-    } else {
-        messageDiv.className = 'outer notMe';
-        messageDiv.innerHTML = `<div class="alert alert-secondary" role="alert">${data.sender}: ${data.msg}</div>`;
+            // Start listening for messages in this group
+            startListeningToGroupMessages(groupKey);
+        }).catch(error => {
+            console.error("Error creating group:", error);
+            alert('Failed to create group. Please try again later.');
+        });
     }
-
-    messages.appendChild(messageDiv);
-
-    // Scroll to the bottom
-    messages.scrollTop = messages.scrollHeight;
 });
+
+// Function to start listening for messages in a group
+function startListeningToGroupMessages(groupId) {
+    db.ref("groups/" + groupId + "/messages").on("child_added", function (snapshot) {
+        const data = snapshot.val();
+        const key = snapshot.key;
+        const messages = document.getElementById('messages');
+
+        const messageDiv = document.createElement('div');
+        messageDiv.id = key;
+
+        if (data.sender === sender) {
+            messageDiv.className = 'outer me';
+            messageDiv.innerHTML = `<div class="alert alert-primary" role="alert">You: ${data.msg} <button onclick="deleteMessage('${key}')" class="btn btn-sm btn-danger">DELETE</button></div>`;
+        } else {
+            messageDiv.className = 'outer notMe';
+            messageDiv.innerHTML = `<div class="alert alert-secondary" role="alert">${data.sender}: ${data.msg}</div>`;
+        }
+
+        messages.appendChild(messageDiv);
+
+        // Scroll to the bottom
+        messages.scrollTop = messages.scrollHeight;
+    });
+}
 
 // Firebase listener for message deletion
 db.ref("messages").on("child_removed", function (snapshot) {
@@ -78,39 +108,3 @@ function deleteMessage(key) {
         });
     }
 }
-
-// Function to delete all chats (only authorized user)
-document.getElementById('deleteAllBtn').addEventListener('click', () => {
-    const password = prompt('Enter password to delete all chats:');
-    if (password === 'your_password_here') { // Replace 'your_password_here' with your actual password
-        if (confirm("Are you sure you want to delete all chats?")) {
-            db.ref("messages").remove().catch(error => {
-                console.error("Error deleting chats:", error);
-                alert('Failed to delete chats. Please try again later.');
-            });
-        }
-    } else {
-        alert('Invalid password. You are not authorized to delete chats.');
-    }
-});
-
-// Function to create a group chat
-document.getElementById('createGroupBtn').addEventListener('click', () => {
-    const groupName = prompt('Enter group name:');
-    if (groupName) {
-        const groupKey = db.ref("groups").push().key;
-        db.ref("groups/" + groupKey).set({
-            name: groupName,
-            createdBy: sender
-        }).then(() => {
-            const groupLink = window.location.href + '?group=' + groupKey;
-            alert('Group created: ' + groupName + '\nGroup Link: ' + groupLink);
-            document.getElementById('groupLinkBtn').style.display = 'block';
-            document.getElementById('groupLinkBtn').href = groupLink;
-        }).catch(error => {
-            console.error("Error creating group:", error);
-            alert('Failed to create group. Please try again later.');
-        });
-    }
-});
-  
