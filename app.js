@@ -37,6 +37,38 @@ document.getElementById('msgBtn').addEventListener('click', () => {
     });
 });
 
+// Firebase listener for new messages
+db.ref("messages").on("child_added", function (snapshot) {
+    const data = snapshot.val();
+    const key = snapshot.key;
+    const messages = document.getElementById('messages');
+
+    const messageDiv = document.createElement('div');
+    messageDiv.id = key;
+
+    if (data.sender === sender) {
+        messageDiv.className = 'outer me';
+        messageDiv.innerHTML = `<div class="alert alert-primary" role="alert">You: ${data.msg} <button onclick="deleteMessage('${key}')" class="btn btn-sm btn-danger">DELETE</button></div>`;
+    } else {
+        messageDiv.className = 'outer notMe';
+        messageDiv.innerHTML = `<div class="alert alert-secondary" role="alert">${data.sender}: ${data.msg}</div>`;
+    }
+
+    messages.appendChild(messageDiv);
+
+    // Scroll to the bottom
+    messages.scrollTop = messages.scrollHeight;
+});
+
+// Firebase listener for message deletion
+db.ref("messages").on("child_removed", function (snapshot) {
+    const key = snapshot.key;
+    const messageDiv = document.getElementById(key);
+    if (messageDiv) {
+        messageDiv.remove();
+    }
+});
+
 // Function to delete a message
 function deleteMessage(key) {
     if (confirm("Are you sure you want to delete this message?")) {
